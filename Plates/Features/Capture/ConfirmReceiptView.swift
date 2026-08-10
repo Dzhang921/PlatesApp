@@ -14,6 +14,7 @@ struct ConfirmReceiptView: View {
 
     @State private var showReceiptViewer = false
     @State private var itemsExpanded = false
+    @State private var cuisineFilter = ""
     @FocusState private var totalFocused: Bool
 
     var body: some View {
@@ -357,16 +358,62 @@ struct ConfirmReceiptView: View {
 
     // MARK: - Cuisine
 
+    /// Selected cuisine pinned first; typing narrows the chips so nothing is
+    /// ever a long scroll away. An unmatched filter falls back to all.
+    private var filteredCuisines: [Cuisine] {
+        let filter = cuisineFilter.trimmingCharacters(in: .whitespaces)
+        var pool = Cuisine.allCases
+        if !filter.isEmpty {
+            let narrowed = pool.filter { $0.displayName.localizedCaseInsensitiveContains(filter) }
+            if !narrowed.isEmpty { pool = narrowed }
+        }
+        if let index = pool.firstIndex(of: model.cuisine), index > 0 {
+            pool.remove(at: index)
+            pool.insert(model.cuisine, at: 0)
+        }
+        return pool
+    }
+
     private var cuisineSection: some View {
         Section {
-            ScrollView(.horizontal, showsIndicators: false) {
+            VStack(spacing: 4) {
                 HStack(spacing: 8) {
-                    ForEach(Cuisine.allCases) { cuisine in
-                        cuisineChip(cuisine)
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.plTextSecondary)
+                    TextField("Filter cuisines", text: $cuisineFilter)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.plText)
+                        .autocorrectionDisabled()
+                    if !cuisineFilter.isEmpty {
+                        Button {
+                            cuisineFilter = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.plTextSecondary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.plSurfaceElevated))
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.top, 12)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHGrid(rows: [GridItem(.fixed(36), spacing: 8), GridItem(.fixed(36))],
+                              spacing: 8) {
+                        ForEach(filteredCuisines) { cuisine in
+                            cuisineChip(cuisine)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                }
+                .frame(height: 100)
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.plSurface)

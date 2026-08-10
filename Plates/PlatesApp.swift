@@ -34,6 +34,7 @@ struct RootView: View {
     @Query private var restaurants: [Restaurant]
     @State private var store = StoreService.shared
     @State private var showCapture = false
+    @State private var showPaywallDebug = false
     @State private var tab: AppTab = .globe
 
     #if DEBUG
@@ -70,6 +71,9 @@ struct RootView: View {
             if UserDefaults.standard.bool(forKey: "autoshowCapture") {
                 showCapture = true
             }
+            if UserDefaults.standard.bool(forKey: "autoshowPaywall") {
+                showPaywallDebug = true
+            }
             #endif
             await store.start()
             WidgetSnapshotWriter.write(restaurants: restaurants)
@@ -94,6 +98,7 @@ struct RootView: View {
                 .padding(.trailing, 20)
                 .padding(.bottom, 92)
         }
+        .sheet(isPresented: $showPaywallDebug) { PaywallView() }
         .fullScreenCover(isPresented: $showCapture, onDismiss: {
             WidgetSnapshotWriter.write(restaurants: restaurants)
             // The capture flow sets pendingSpotlightID after saving a new

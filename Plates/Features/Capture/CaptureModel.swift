@@ -127,6 +127,22 @@ final class CaptureModel {
     private func arriveAtConfirm() {
         placeQuery = merchantName
         withAnimation(.easeInOut(duration: 0.25)) { step = .confirm }
+        #if DEBUG
+        // Marketing screenshots seed a resolved place so MapKit's MKLocalSearch
+        // (which itself prompts for location) never runs.
+        if UserDefaults.standard.bool(forKey: "screenshotMode") {
+            let stub = PlaceMatch(name: merchantName.isEmpty ? "Joe's Shanghai" : merchantName,
+                                  latitude: 40.71544, longitude: -73.99694,
+                                  city: "New York", country: "United States",
+                                  countryCode: "US",
+                                  address: "46 Bowery, New York",
+                                  poiCategory: nil, distanceMeters: 320)
+            candidates = [stub]
+            select(stub)
+            cuisine = .chinese
+            return
+        }
+        #endif
         Task { await searchPlaces() }
         Task { await classifyCuisine() }
     }

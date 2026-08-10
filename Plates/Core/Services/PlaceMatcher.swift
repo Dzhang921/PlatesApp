@@ -160,6 +160,10 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
 
     /// Requests when-in-use permission if needed and refreshes a one-shot location.
     func request() {
+        #if DEBUG
+        // Marketing-screenshot builds suppress the system permission alert.
+        if UserDefaults.standard.bool(forKey: "screenshotMode") { return }
+        #endif
         wantsLocation = true
         switch manager.authorizationStatus {
         case .notDetermined:

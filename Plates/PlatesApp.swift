@@ -24,7 +24,7 @@ struct PlatesApp: App {
 }
 
 enum AppTab: Hashable {
-    case globe, collection, stats, passport
+    case globe, collection, stats, discover, passport
 }
 
 struct RootView: View {
@@ -43,6 +43,7 @@ struct RootView: View {
         switch UserDefaults.standard.string(forKey: "initialTab") {
         case "collection": _tab = State(initialValue: .collection)
         case "stats": _tab = State(initialValue: .stats)
+        case "discover": _tab = State(initialValue: .discover)
         case "passport": _tab = State(initialValue: .passport)
         default: break
         }
@@ -85,6 +86,7 @@ struct RootView: View {
             Tab("Globe", systemImage: "globe.americas.fill", value: AppTab.globe) { GlobeView() }
             Tab("Collection", systemImage: "square.grid.2x2.fill", value: AppTab.collection) { CollectionView() }
             Tab("Stats", systemImage: "chart.bar.fill", value: AppTab.stats) { StatsView() }
+            Tab("Discover", systemImage: "sparkles", value: AppTab.discover) { DiscoverView() }
             Tab("Passport", systemImage: "book.closed.fill", value: AppTab.passport) { PassportView() }
         }
         .overlay(alignment: .bottomTrailing) {

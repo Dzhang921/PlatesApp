@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 /// The collector's identity page: lifetime stats, streaks, the badge cabinet,
 /// a shareable year card, the Pro upsell, and settings.
@@ -8,7 +9,14 @@ struct PassportView: View {
     @Environment(StoreService.self) private var store
 
     @State private var showPaywall = false
-    @State private var shareImage: Image?
+    @State private var yearShareImage: Image?
+    @State private var passportShareImage: Image?
+    @State private var showPhotoPicker = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var showNameEditor = false
+    @State private var editingName = ""
+
+    private var profile: ProfileStore { .shared }
 
     private var currentYear: Int {
         Calendar.current.component(.year, from: Date())
@@ -37,7 +45,30 @@ struct PassportView: View {
                 PaywallView()
             }
             .task(id: shareRenderKey) {
-                renderShareCard()
+                renderShareCards()
+            }
+            .photosPicker(isPresented: $showPhotoPicker,
+                          selection: $photoItem,
+                          matching: .images)
+            .onChange(of: photoItem) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    if let data = try? await newItem
+                        .loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        profile.setPhoto(image)
+                        Haptics.success()
+                    }
+                    photoItem = nil
+                }
+            }
+            .alert("Your name", isPresented: $showNameEditor) {
+                TextField("Add your name", text: $editingName)
+                Button("Save") {
+                    profile.setName(editingName)
+                    Haptics.success()
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
@@ -46,23 +77,10 @@ struct PassportView: View {
 
     private func heroCard(_ stats: LifetimeStats) -> some View {
         VStack(spacing: 18) {
-            ZStack {
-                Circle()
-                    .strokeBorder(LinearGradient.plGold, lineWidth: 2)
-                    .frame(width: 88, height: 88)
-                Circle()
-                    .strokeBorder(Color.plGold.opacity(0.35), lineWidth: 1)
-                    .frame(width: 70, height: 70)
-                Text("P")
-                    .font(.plDisplay(36))
-                    .foregroundStyle(LinearGradient.plGold)
-            }
-            .plGlow(.plGold, radius: 10)
+            avatarButton
 
             VStack(spacing: 5) {
-                Text("Your Passport")
-                    .font(.plDisplay(28))
-                    .foregroundStyle(Color.plText)
+                nameButton
                 if stats.plateCount == 0 {
                     Text("Scan a receipt to collect your first plate.")
                         .font(.subheadline)
@@ -83,6 +101,76 @@ struct PassportView: View {
         }
         .frame(maxWidth: .infinity)
         .plCard(padding: 24)
+    }
+
+    /// The profile photo (or the "P" monogram) inside the gold double-ring.
+    /// Tapping opens the photo picker; a pencil badge hints editability.
+    private var avatarButton: some View {
+        Button {
+            Haptics.tap()
+            showPhotoPicker = true
+        } label: {
+            ZStack {
+                if let photo = profile.photo {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                } else {
+                    Text("P")
+                        .font(.plDisplay(36))
+                        .foregroundStyle(LinearGradient.plGold)
+                }
+                Circle()
+                    .strokeBorder(Color.plGold.opacity(0.35), lineWidth: 1)
+                    .frame(width: 70, height: 70)
+                Circle()
+                    .strokeBorder(LinearGradient.plGold, lineWidth: 2)
+                    .frame(width: 88, height: 88)
+            }
+            .plGlow(.plGold, radius: 10)
+            .overlay(alignment: .bottomTrailing) {
+                pencilBadge
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(profile.photo == nil
+                            ? "Add profile photo"
+                            : "Change profile photo")
+    }
+
+    private var pencilBadge: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient.plGold)
+            Image(systemName: "pencil")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: 0x14100A))
+        }
+        .frame(width: 24, height: 24)
+        .overlay(Circle().strokeBorder(Color.plSurface, lineWidth: 2))
+    }
+
+    /// The display name — falls back to "Your Passport"; tap to edit.
+    private var nameButton: some View {
+        Button {
+            Haptics.tap()
+            editingName = profile.displayName
+            showNameEditor = true
+        } label: {
+            Text(profile.displayName.isEmpty
+                 ? "Your Passport"
+                 : profile.displayName)
+                .font(.plDisplay(28))
+                .foregroundStyle(Color.plText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(profile.displayName.isEmpty
+                            ? "Add your name"
+                            : "Edit your name")
     }
 
     private func starValue(_ count: Int) -> Text {
@@ -203,40 +291,60 @@ struct PassportView: View {
         }
     }
 
-    // MARK: - Share your year
+    // MARK: - Sharing
 
     private var shareSection: some View {
+        VStack(spacing: 12) {
+            shareRow(image: yearShareImage,
+                     icon: "square.and.arrow.up",
+                     title: "Share your year",
+                     subtitle: "A snapshot of your \(String(currentYear)) in food",
+                     previewTitle: "My \(String(currentYear)) in Plates")
+            shareRow(image: passportShareImage,
+                     icon: "wallet.pass",
+                     title: "Share passport",
+                     subtitle: "Your lifetime collection, one card",
+                     previewTitle: "My Plates Passport")
+        }
+    }
+
+    private func shareRow(image: Image?,
+                          icon: String,
+                          title: String,
+                          subtitle: String,
+                          previewTitle: String) -> some View {
         Group {
-            if let shareImage {
-                ShareLink(item: shareImage,
-                          preview: SharePreview("My \(String(currentYear)) in Plates",
-                                                image: shareImage)) {
-                    shareLabel
+            if let image {
+                ShareLink(item: image,
+                          preview: SharePreview(previewTitle, image: image)) {
+                    shareLabel(icon: icon, title: title, subtitle: subtitle)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded { Haptics.tap() })
             } else {
-                shareLabel
+                shareLabel(icon: icon, title: title, subtitle: subtitle)
                     .opacity(0.5)
             }
         }
     }
 
-    private var shareLabel: some View {
+    private func shareLabel(icon: String,
+                            title: String,
+                            subtitle: String) -> some View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(Color.plSurfaceElevated)
                     .frame(width: 46, height: 46)
-                Image(systemName: "square.and.arrow.up")
+                Image(systemName: icon)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Color.plGold)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text("Share your year")
+                Text(title)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color.plText)
-                Text("A snapshot of your \(String(currentYear)) in food")
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(Color.plTextSecondary)
             }
@@ -251,17 +359,53 @@ struct PassportView: View {
     private var shareRenderKey: String {
         let visitCount = restaurants.reduce(0) { $0 + $1.visits.count }
         return "\(restaurants.count)|\(visitCount)|\(CurrencyConverter.homeCurrency)"
+            + "|\(profile.displayName)|\(profile.photoPath ?? "")"
     }
 
     @MainActor
-    private func renderShareCard() {
-        let renderer = ImageRenderer(content: makeYearShareCard())
+    private func renderShareCards() {
+        yearShareImage = rendered(makeYearShareCard())
+        passportShareImage = rendered(makePassportShareCard())
+    }
+
+    @MainActor
+    private func rendered(_ card: some View) -> Image? {
+        let renderer = ImageRenderer(content: card)
         renderer.proposedSize = ProposedViewSize(width: 1080, height: 1350)
         renderer.scale = 1
         renderer.isOpaque = true
-        if let uiImage = renderer.uiImage {
-            shareImage = Image(uiImage: uiImage)
-        }
+        return renderer.uiImage.map { Image(uiImage: $0) }
+    }
+
+    /// Earned badges ranked michelin → gold → silver → bronze (catalog order
+    /// within a tier), plus lifetime stats, for the passport card.
+    private func makePassportShareCard() -> PassportShareCard {
+        let stats = StatsEngine.lifetime(restaurants: restaurants)
+
+        let showcased = BadgeEngine.badges(restaurants: restaurants)
+            .filter(\.earned)
+            .enumerated()
+            .sorted { lhs, rhs in
+                lhs.element.tier == rhs.element.tier
+                    ? lhs.offset < rhs.offset
+                    : lhs.element.tier > rhs.element.tier
+            }
+            .prefix(5)
+            .map(\.element)
+
+        let sinceYear = restaurants.map(\.addedAt).min()
+            .map { Calendar.current.component(.year, from: $0) }
+            ?? currentYear
+
+        return PassportShareCard(displayName: profile.displayName,
+                                 photo: profile.photo,
+                                 plateCount: stats.plateCount,
+                                 starCount: stats.michelinStarsCollected,
+                                 countryCount: stats.countryCount,
+                                 badges: showcased,
+                                 topCuisines: Array(stats.cuisineCounts
+                                     .prefix(3).map(\.cuisine)),
+                                 collectorSince: sinceYear)
     }
 
     private func makeYearShareCard() -> YearShareCard {

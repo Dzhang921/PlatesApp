@@ -196,3 +196,20 @@ scan → parse → confirm → celebrate:
 | F5 | `Features/Passport/**` (incl. SampleData.swift), `Features/Paywall/**` |
 | F6 | `Features/Onboarding/**` |
 | F7 | `PlatesWidgets/**` (own target — no app imports) |
+
+## v1.1 additions
+
+- **Profile identity** — `Features/Passport/ProfileStore.swift` (`@Observable`, singleton):
+  display name + profile photo (ImageStore-backed, UserDefaults keys `profileName` /
+  `profilePhotoPath`). Passport hero shows the photo in the gold ring; tap to change.
+- **Passport sharing** — `Features/Passport/PassportShareCard.swift`, a 1080×1350
+  share graphic (photo/monogram, name, stat trio, top badges, top cuisines), shared
+  from PassportView alongside the year card.
+- **Discover tab** (`AppTab.discover`, sparkles icon) — `Features/Discover/**` +
+  `Core/Services/TasteEngine.swift`. TasteProfile is computed from the collection
+  (top cuisines, Michelin/Bib affinity, avg spend, favorite dishes). Recommendations
+  for a searched city (or "Near me") merge Michelin-catalog candidates within 40 km
+  with Apple Maps searches for the user's top cuisines, scored by taste match;
+  per-recommendation one-line reasons come from FoundationModels when available
+  (single batched prompt, 6 s timeout) with deterministic template fallback.
+  Needs ≥3 plates before it activates.

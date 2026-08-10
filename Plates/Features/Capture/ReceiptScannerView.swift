@@ -56,13 +56,14 @@ struct ScannerStepView: View {
     @State private var photoItems: [PhotosPickerItem] = []
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ReceiptScannerView(
-                onScan: { images in model.handleScan(images) },
-                onCancel: { onClose() }
-            )
-            .ignoresSafeArea()
-
+        ReceiptScannerView(
+            onScan: { images in model.handleScan(images) },
+            onCancel: { onClose() }
+        )
+        .ignoresSafeArea()
+        // The document camera owns the bottom of the screen (flash, filters,
+        // shutter); the strip below its top bar is the only safe free space.
+        .overlay(alignment: .top) {
             HStack(spacing: 10) {
                 PhotosPicker(selection: $photoItems, maxSelectionCount: 3, matching: .images) {
                     scannerPill("From Photos", symbol: "photo.on.rectangle")
@@ -74,7 +75,7 @@ struct ScannerStepView: View {
                     scannerPill("Enter manually", symbol: "square.and.pencil")
                 }
             }
-            .padding(.bottom, 118)
+            .padding(.top, 112)
             .onChange(of: photoItems) { _, items in
                 guard !items.isEmpty else { return }
                 Task { await scanPickedPhotos(items) }

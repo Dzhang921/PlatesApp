@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 import VisionKit
@@ -52,6 +53,8 @@ struct ScannerStepView: View {
     var model: CaptureModel
     var onClose: () -> Void
 
+    @State private var photoItems: [PhotosPickerItem] = []
+
     var body: some View {
         ZStack(alignment: .bottom) {
             ReceiptScannerView(
@@ -60,20 +63,48 @@ struct ScannerStepView: View {
             )
             .ignoresSafeArea()
 
-            Button {
-                Haptics.tap()
-                model.switchToManual()
-            } label: {
-                Label("Enter manually", systemImage: "square.and.pencil")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.plText)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                    .background(Capsule().fill(Color.plSurfaceElevated.opacity(0.92)))
-                    .overlay(Capsule().strokeBorder(Color.plStroke, lineWidth: 1))
+            HStack(spacing: 10) {
+                PhotosPicker(selection: $photoItems, maxSelectionCount: 3, matching: .images) {
+                    scannerPill("From Photos", symbol: "photo.on.rectangle")
+                }
+                Button {
+                    Haptics.tap()
+                    model.switchToManual()
+                } label: {
+                    scannerPill("Enter manually", symbol: "square.and.pencil")
+                }
             }
             .padding(.bottom, 118)
+            .onChange(of: photoItems) { _, items in
+                guard !items.isEmpty else { return }
+                Task { await scanPickedPhotos(items) }
+            }
         }
         .statusBarHidden()
+    }
+
+    private func scannerPill(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color.plText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(Color.plSurfaceElevated.opacity(0.92)))
+            .overlay(Capsule().strokeBorder(Color.plStroke, lineWidth: 1))
+    }
+
+    /// Library photos go through the exact same OCR pipeline as a live scan.
+    private func scanPickedPhotos(_ items: [PhotosPickerItem]) async {
+        var images: [UIImage] = []
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                images.append(image)
+            }
+        }
+        photoItems = []
+        guard !images.isEmpty else { return }
+        Haptics.tap()
+        model.handleScan(images)
     }
 }

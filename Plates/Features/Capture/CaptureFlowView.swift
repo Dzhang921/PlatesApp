@@ -30,7 +30,20 @@ struct CaptureFlowView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { LocationProvider.shared.request() }
+        .onAppear {
+            LocationProvider.shared.request()
+            #if DEBUG
+            // Headless OCR verification: -autoScanFixture YES parses
+            // Documents/receipt_fixture.png as if it were a scanned receipt.
+            if UserDefaults.standard.bool(forKey: "autoScanFixture") {
+                let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("receipt_fixture.png")
+                if let image = UIImage(contentsOfFile: url.path) {
+                    model.handleScan([image])
+                }
+            }
+            #endif
+        }
     }
 }
 
@@ -43,6 +56,7 @@ struct ManualEntryView: View {
     var onClose: () -> Void
 
     @State private var photoItem: PhotosPickerItem?
+    @State private var scanItems: [PhotosPickerItem] = []
     @FocusState private var focusedField: Field?
 
     private enum Field { case name, total }
@@ -53,6 +67,46 @@ struct ManualEntryView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
+                    PhotosPicker(selection: $scanItems, maxSelectionCount: 3, matching: .images) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "text.viewfinder")
+                                .font(.system(size: 24))
+                                .foregroundStyle(Color.plGold)
+                                .frame(width: 52, height: 52)
+                                .background(Circle().fill(Color.plSurfaceElevated))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Scan a photo of the receipt")
+                                    .foregroundStyle(Color.plText)
+                                    .font(.system(size: 16, weight: .medium))
+                                Text("Plates reads the details for you")
+                                    .foregroundStyle(Color.plTextSecondary)
+                                    .font(.system(size: 13))
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.plTextSecondary)
+                        }
+                        .plCard()
+                    }
+                    .buttonStyle(.plain)
+                    .onChange(of: scanItems) { _, items in
+                        guard !items.isEmpty else { return }
+                        Task {
+                            var images: [UIImage] = []
+                            for item in items {
+                                if let data = try? await item.loadTransferable(type: Data.self),
+                                   let image = UIImage(data: data) {
+                                    images.append(image)
+                                }
+                            }
+                            scanItems = []
+                            guard !images.isEmpty else { return }
+                            Haptics.tap()
+                            model.handleScan(images)
+                        }
+                    }
+
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Restaurant")
                             .font(.system(size: 13, weight: .semibold))

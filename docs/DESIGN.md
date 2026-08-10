@@ -165,7 +165,9 @@ Cross-feature coordination:
 
 scan → parse → confirm → celebrate:
 1. Full-screen VisionKit `VNDocumentCameraViewController` wrapper. Also offer
-   "Enter manually" (skips OCR) — required for simulator testing and broken receipts.
+   "From Photos" (library photos run through the same OCR pipeline) and
+   "Enter manually" (skips OCR) — the manual form also has a scan-from-library
+   row, so photo-upload OCR works on camera-less devices too.
 2. Parsing overlay (gold shimmer, "Reading your receipt…").
 3. Confirm screen: receipt thumbnail; editable merchant/date/total/currency;
    place picker seeded with `PlaceMatcher.search(query: merchant, near: location)`

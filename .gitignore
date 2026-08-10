@@ -1,0 +1,11 @@
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+.env
+
+# Claude Code local session and memory data
+.claude/
+scripts/michelin_my_maps.csv

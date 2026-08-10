@@ -1,0 +1,31 @@
+{
+  "identifier" : "B7C8D9E1",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "6.99",
+      "familyShareable" : false,
+      "internalID" : "30554510",
+      "localizations" : [
+        {
+          "description" : "Unlimited plates, forever. One purchase, no subscription.",
+          "displayName" : "Plates Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.dxzhang.plates.pro",
+      "referenceName" : "Plates Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "Plates",
+    "_developerTeamID" : "",
+    "_lastSynchronizedDate" : 0
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
